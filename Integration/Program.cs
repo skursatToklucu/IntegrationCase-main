@@ -1,29 +1,65 @@
 ﻿using Integration.Service;
 
-namespace Integration;
-
-public abstract class Program
+namespace Integration
 {
-    public static void Main(string[] args)
+    public abstract class Program
     {
-        var service = new ItemIntegrationService();
-        
-        ThreadPool.QueueUserWorkItem(_ => service.SaveItem("a"));
-        ThreadPool.QueueUserWorkItem(_ => service.SaveItem("b"));
-        ThreadPool.QueueUserWorkItem(_ => service.SaveItem("c"));
+        public static async Task Main(string[] args)
+        {
+            string redisConnectionString = "localhost:6379";
+            using var service = new ItemIntegrationService(redisConnectionString);
 
-        Thread.Sleep(500);
+            var tasks = new[]
+            {
+                Task.Run(async () =>
+                {
+                    var result = await service.SaveItemAsync("a");
+                    Console.WriteLine(result.Message);
+                }),
+                Task.Run(async () =>
+                {
+                    var result = await service.SaveItemAsync("b");
+                    Console.WriteLine(result.Message);
+                }),
+                Task.Run(async () =>
+                {
+                    var result = await service.SaveItemAsync("c");
+                    Console.WriteLine(result.Message);
+                })
+            };
 
-        ThreadPool.QueueUserWorkItem(_ => service.SaveItem("a"));
-        ThreadPool.QueueUserWorkItem(_ => service.SaveItem("b"));
-        ThreadPool.QueueUserWorkItem(_ => service.SaveItem("c"));
+            await Task.WhenAll(tasks);
 
-        Thread.Sleep(5000);
+            await Task.Delay(500);
 
-        Console.WriteLine("Everything recorded:");
+            var duplicateTasks = new[]
+            {
+                Task.Run(async () =>
+                {
+                    var result = await service.SaveItemAsync("a");
+                    Console.WriteLine(result.Message);
+                }),
+                Task.Run(async () =>
+                {
+                    var result = await service.SaveItemAsync("b");
+                    Console.WriteLine(result.Message);
+                }),
+                Task.Run(async () =>
+                {
+                    var result = await service.SaveItemAsync("c");
+                    Console.WriteLine(result.Message);
+                })
+            };
 
-        service.GetAllItems().ForEach(Console.WriteLine);
+            await Task.WhenAll(duplicateTasks);
 
-        Console.ReadLine();
+            await Task.Delay(5000);
+
+            Console.WriteLine("Everything recorded:");
+
+            service.GetAllItems().ForEach(Console.WriteLine);
+
+            Console.ReadLine();
+        }
     }
 }

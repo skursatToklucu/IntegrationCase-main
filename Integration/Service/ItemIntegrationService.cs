@@ -1,32 +1,59 @@
-﻿using Integration.Common;
+﻿
+using Integration.Common;
 using Integration.Backend;
+using StackExchange.Redis;
 
-namespace Integration.Service;
-
-public sealed class ItemIntegrationService
+namespace Integration.Service
 {
-    //This is a dependency that is normally fulfilled externally.
-    private ItemOperationBackend ItemIntegrationBackend { get; set; } = new();
-
-    // This is called externally and can be called multithreaded, in parallel.
-    // More than one item with the same content should not be saved. However,
-    // calling this with different contents at the same time is OK, and should
-    // be allowed for performance reasons.
-    public Result SaveItem(string itemContent)
+    public sealed class ItemIntegrationService : IDisposable
     {
-        // Check the backend to see if the content is already saved.
-        if (ItemIntegrationBackend.FindItemsWithContent(itemContent).Count != 0)
+        private readonly ItemOperationBackend ItemIntegrationBackend;
+
+        private readonly ConnectionMultiplexer _redis;
+        private readonly IDatabase _database;
+
+        public ItemIntegrationService(string redisConnectionString)
         {
-            return new Result(false, $"Duplicate item received with content {itemContent}.");
+            ItemIntegrationBackend = new ItemOperationBackend();
+            _redis = ConnectionMultiplexer.Connect(redisConnectionString);
+            _database = _redis.GetDatabase();
         }
 
-        var item = ItemIntegrationBackend.SaveItem(itemContent);
+        public async Task<Result> SaveItemAsync(string itemContent)
+        {
+            string lockKey = $"lock:item:{itemContent}";
+            TimeSpan lockTimeout = TimeSpan.FromSeconds(10);
+            string lockValue = Guid.NewGuid().ToString();
 
-        return new Result(true, $"Item with content {itemContent} saved with id {item.Id}");
-    }
+            bool lockAcquired = await _database.LockTakeAsync(lockKey, lockValue, lockTimeout);
+            if (!lockAcquired)
+            {
+                return new Result(false, $"Unable to acquire lock for content {itemContent}.");
+            }
 
-    public List<Item> GetAllItems()
-    {
-        return ItemIntegrationBackend.GetAllItems();
+            try
+            {
+                if (ItemIntegrationBackend.FindItemsWithContent(itemContent).Count != 0)
+                    return new Result(false, $"Duplicate item received with content {itemContent}.");
+
+
+                var item = ItemIntegrationBackend.SaveItem(itemContent);
+                return new Result(true, $"Item with content {itemContent} saved with id {item.Id}");
+            }
+            finally
+            {
+                await _database.LockReleaseAsync(lockKey, lockValue);
+            }
+        }
+
+        public List<Item> GetAllItems()
+        {
+            return ItemIntegrationBackend.GetAllItems();
+        }
+
+        public void Dispose()
+        {
+            _redis?.Dispose();
+        }
     }
 }

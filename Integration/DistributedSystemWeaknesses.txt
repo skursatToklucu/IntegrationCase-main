@@ -1,0 +1,15 @@
+1. Tek Nokta Hatasý (Single Point of Failure):
+   - Redis sunucusu çöktüðünde, kilit sistemi tamamen çalýþmaz hale gelir.
+   - Nasýl Düzeltiriz: Redis’i, Redis Sentinel veya Redis Cluster gibi yöntemlerle yüksek eriþilebilirlik modunda yapýlandýrarak daha dayanýklý hale getirilebilir.
+
+2. Performans Maliyeti:
+   - Daðýtýk kilitler, að baðlantýsý gerektirdiðinden yerel kilitlere göre daha yavaþ olabilir.
+   - Nasýl Düzeltiriz: Hýzý artýrmak için gereksiz kilit taleplerini minimize edip ve kilit süreleri optimize edilebilir.
+
+3. Kilit Zaman Aþýmý ve Deadlock:
+   - Kilitler doðru þekilde serbest býrakýlmazsa, sistem kilitlenebilir.
+   - Nasýl Düzeltiriz: Kilitlerin otomatik olarak serbest býrakýldýðýndan emin olmak için kilit zaman aþýmý sürelerini dikkatlice yapýlandýrabiliriz, bu da deadlock durumlarýný önlemeye yardýmcý olabilir.
+
+4. Kilit Yönetiminin Karmaþýklýðý:
+   - Daðýtýk bir sistemde kilitleri uygun þekilde yönetmek zor olabilir.
+   - Nasýl Düzeltiriz: Bu sorunu çözmek için iyi belgelenmiþ kütüphaneler kullanilabilir.
